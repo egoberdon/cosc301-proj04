@@ -162,7 +162,7 @@ fork(void)
   acquire(&ptable.lock);
   np->state = RUNNABLE;
   release(&ptable.lock);
-
+  np->thread = 0;
   return pid;
 }
 
@@ -179,10 +179,7 @@ clone(void(*fcn)(void*), void *arg, void *stack)
   if((newtask = allocproc()) == 0)
     return -1;
 
-  if (*fcn == NULL)
-    return -1;
-  else
-    fnptr = *fcn;
+  fnptr = 0;
 
   // Copy process state from p.
   if((np->pgdir = copyuvm(proc->pgdir, proc->sz)) == 0){
@@ -224,7 +221,7 @@ clone(void(*fcn)(void*), void *arg, void *stack)
   newtask->tf->esp = sp;
   switchuvm(newtask);
   newtask->state = RUNNABLE;
-
+  np->thread = 1;
   return pid;
 }
 
