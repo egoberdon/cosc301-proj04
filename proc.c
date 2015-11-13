@@ -82,6 +82,7 @@ userinit(void)
   extern char _binary_initcode_start[], _binary_initcode_size[];
 
   p = allocproc();
+  p->thread = 0;
   initproc = p;
   if((p->pgdir = setupkvm()) == 0)
     panic("userinit: out of memory?");
@@ -134,7 +135,7 @@ fork(void)
   // Allocate process.
   if((np = allocproc()) == 0)
     return -1;
-
+  np->thread = 0;
   // Copy process state from p.
   if((np->pgdir = copyuvm(proc->pgdir, proc->sz)) == 0){
     kfree(np->kstack);
@@ -169,41 +170,35 @@ fork(void)
 int
 clone(void(*fcn)(void*), void *arg, void *stack)
 {
-  int i, pid, fnptr;
-  struct proc *np;
+  int i, pid;
   struct proc *newtask;
 
   // Allocate processes
-  if((np = allocproc()) == 0)
-    return -1;
   if((newtask = allocproc()) == 0)
     return -1;
-
-  fnptr = 0;
-
+  newtask->thread = 1;
   // Copy process state from p.
-  if((np->pgdir = copyuvm(proc->pgdir, proc->sz)) == 0){
-    kfree(np->kstack);
-    np->kstack = 0;
-    np->state = UNUSED;
+  if((newtask->pgdir = copyuvm(proc->pgdir, proc->sz)) == 0){
+    kfree(newtask->kstack);
+    newtask->kstack = 0;
+    newtask->state = UNUSED;
     return -1;
   }
-  np->sz = proc->sz;
-  np->parent = proc;
-  *np->tf = *proc->tf;
+  newtask->sz = proc->sz;
+  newtask->parent = proc;
+  *newtask->tf = *proc->tf;
 
   // Clear %eax so that fork returns 0 in the child.
-  np->tf->eax = 0;
+  newtask->tf->eax = 0;
 
   for(i = 0; i < NOFILE; i++)
     if(proc->ofile[i])
-      np->ofile[i] = filedup(proc->ofile[i]);
-  np->cwd = idup(proc->cwd);
+      newtask->ofile[i] = filedup(proc->ofile[i]);
+  newtask->cwd = idup(proc->cwd);
 
-  safestrcpy(np->name, proc->name, sizeof(proc->name));
+  safestrcpy(newtask->name, proc->name, sizeof(proc->name));
 
-  pid = np->pid;
-
+  pid = newtask->pid;
   // temporary array to copy into the bottom of new stack
   // for the thread (i.e., to the high address in stack
   // page, since the stack grows downward)
@@ -217,11 +212,11 @@ clone(void(*fcn)(void*), void *arg, void *stack)
     // failed to copy bottom of stack into new task
     return -1;
   }
-  newtask->tf->eip = (uint)fnptr;
+  newtask->tf->eip = (uint)fcn;
   newtask->tf->esp = sp;
   switchuvm(newtask);
   newtask->state = RUNNABLE;
-  np->thread = 1;
+  newtask->thread = 1;
   return pid;
 }
 
@@ -311,6 +306,10 @@ wait(void)
     // Wait for children to exit.  (See wakeup1 call in proc_exit.)
     sleep(proc, &ptable.lock);  //DOC: wait-sleep
   }
+}
+
+int join(int pid){
+  return pid;
 }
 
 //PAGEBREAK: 42
