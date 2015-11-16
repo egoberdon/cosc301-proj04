@@ -302,8 +302,65 @@ wait(void)
   }
 }
 
-int join(int pid){
-  return pid;
+int
+join(int pid){
+  if (proc->thread == 1){ //thread cannot call join
+    return -1;
+  }
+  if (proc->pid == pid){ //parent cannot wait for itself
+    return -1;
+  }
+  struct proc *p;
+  acquire(&ptable.lock);
+  if (pid != -1){ //waiting for one child
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if((p->pid == pid) && (p->state == ZOMBIE)){ //Found process
+        kfree(p->kstack);
+        p->kstack = 0;
+        p->state = UNUSED;
+        p->pid = 0;
+        p->parent = 0;
+        p->name[0] = 0;
+        p->killed = 0;
+        release(&ptable.lock);
+        return pid;
+      }
+    }
+    return -1; //got out of loop without finding that pid
+  }
+  else if (pid == -1) {
+    int havekids;
+    for(;;){
+      // Scan through table looking for zombie children.
+      havekids = 0;
+      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+        if(p->parent != proc)
+          continue;
+        havekids = 1;
+        if(p->state == ZOMBIE){
+          // Found one.
+          pid = p->pid;
+          kfree(p->kstack);
+          p->kstack = 0;
+          p->state = UNUSED;
+          p->pid = 0;
+          p->parent = 0;
+          p->name[0] = 0;
+          p->killed = 0;
+          release(&ptable.lock);
+          return pid;
+        }
+      }
+      // No point waiting if we don't have any children.
+      if(!havekids || proc->killed){
+        release(&ptable.lock);
+        return -1;
+      }
+    }
+  }
+  // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+  sleep(proc, &ptable.lock);  //DOC: wait-sleep
+  return -1; //is this correct?
 }
 
 //PAGEBREAK: 42
