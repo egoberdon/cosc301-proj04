@@ -251,7 +251,7 @@ exit(void)
 
   // Parent might be sleeping in wait().
   wakeup1(proc->parent);
-
+  int hasthreads = 0;
   // Pass abandoned children to init.
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->parent == proc){
@@ -261,15 +261,19 @@ exit(void)
           wakeup1(initproc);
       }
       else if (p->thread == 1){
+            hasthreads = 1;
             p->killed = 1;
             // Wake process from sleep if necessary.
             if(p->state == SLEEPING)
               p->state = RUNNABLE;
-            join(p->pid);
       }
     }
   }
-
+  if (hasthreads){
+    release(&ptable.lock);
+    join(-1);
+    acquire(&ptable.lock);
+  }
   // Jump into the scheduler, never to return.
   proc->state = ZOMBIE;
   sched();
