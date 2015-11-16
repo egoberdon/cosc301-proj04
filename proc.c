@@ -119,6 +119,13 @@ growproc(int n)
       return -1;
   }
   proc->sz = sz;
+  struct proc *p;
+  int parent_pid = proc->parent->pid;
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if ((p->pid == parent_pid) || (p->parent->pid == parent_pid)){ //p is parent or sibling thread
+      p->sz = sz;
+    }
+  }
   switchuvm(proc);
   return 0;
 }
@@ -192,7 +199,7 @@ clone(void(*fcn)(void*), void *arg, void *stack)
   newtask->cwd = idup(proc->cwd);
 
   safestrcpy(newtask->name, proc->name, sizeof(proc->name));
-
+  acquire(&ptable.lock);
   // temporary array to copy into the bottom of new stack
   // for the thread (i.e., to the high address in stack
   // page, since the stack grows downward)
@@ -209,7 +216,6 @@ clone(void(*fcn)(void*), void *arg, void *stack)
   newtask->tf->eip = (uint)fcn;
   newtask->tf->esp = sp;
   switchuvm(newtask);
-  acquire(&ptable.lock);
   newtask->state = RUNNABLE;
   release(&ptable.lock);
   pid = newtask->pid;
