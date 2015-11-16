@@ -209,7 +209,9 @@ clone(void(*fcn)(void*), void *arg, void *stack)
   newtask->tf->eip = (uint)fcn;
   newtask->tf->esp = sp;
   switchuvm(newtask);
+  acquire(&ptable.lock);
   newtask->state = RUNNABLE;
+  release(&ptable.lock);
   pid = newtask->pid;
   return pid;
 }
@@ -247,9 +249,18 @@ exit(void)
   // Pass abandoned children to init.
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->parent == proc){
-      p->parent = initproc;
-      if(p->state == ZOMBIE)
-        wakeup1(initproc);
+      if(p->thread == 0){
+        p->parent = initproc;
+        if(p->state == ZOMBIE)
+          wakeup1(initproc);
+      }
+      else if (p->thread == 1){
+            p->killed = 1;
+            // Wake process from sleep if necessary.
+            if(p->state == SLEEPING)
+              p->state = RUNNABLE;
+            join(p->pid);
+      }
     }
   }
 
@@ -272,7 +283,7 @@ wait(void)
     // Scan through table looking for zombie children.
     havekids = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->parent != proc || p->thread == 1) //join should handle threads, not wait
+      if(p->parent != proc || p->thread == 1) //join should handle threads
         continue;
       havekids = 1;
       if(p->state == ZOMBIE){
