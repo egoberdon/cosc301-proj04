@@ -172,18 +172,13 @@ clone(void(*fcn)(void*), void *arg, void *stack)
 {
   int i, pid;
   struct proc *newtask;
-
   // Allocate processes
-  if((newtask = allocproc()) == 0)
-    return -1;
-  newtask->thread = 1;
-  // Copy process state from p.
-  if((newtask->pgdir = copyuvm(proc->pgdir, proc->sz)) == 0){
-    kfree(newtask->kstack);
-    newtask->kstack = 0;
-    newtask->state = UNUSED;
+  if((newtask = allocproc()) == 0){
     return -1;
   }
+
+  newtask->thread = 1;
+  newtask->pgdir = proc->pgdir; //share address space with child
   newtask->sz = proc->sz;
   newtask->parent = proc;
   *newtask->tf = *proc->tf;
@@ -198,7 +193,6 @@ clone(void(*fcn)(void*), void *arg, void *stack)
 
   safestrcpy(newtask->name, proc->name, sizeof(proc->name));
 
-  pid = newtask->pid;
   // temporary array to copy into the bottom of new stack
   // for the thread (i.e., to the high address in stack
   // page, since the stack grows downward)
@@ -216,7 +210,7 @@ clone(void(*fcn)(void*), void *arg, void *stack)
   newtask->tf->esp = sp;
   switchuvm(newtask);
   newtask->state = RUNNABLE;
-  newtask->thread = 1;
+  pid = newtask->pid;
   return pid;
 }
 
