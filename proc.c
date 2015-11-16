@@ -377,11 +377,13 @@ join(int pid){
         release(&ptable.lock);
         return -1;
       }
+      // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+      sleep(proc, &ptable.lock);  //DOC: wait-sleep
     }
   }
-  // Wait for children to exit.  (See wakeup1 call in proc_exit.)
-  sleep(proc, &ptable.lock);  //DOC: wait-sleep
-  return -1; //is this correct?
+  else{
+    return -1;
+  }
 }
 
 //PAGEBREAK: 42
