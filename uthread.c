@@ -17,31 +17,29 @@ void* start;
 
 void lock_init(lock_t *lock) {
   lock->locked = 0;
-  lock->cpu = 0;
 }
 
 void lock_acquire(lock_t *lock) {
-
   while(xchg(&lock->locked, 1) != 0)
     ;
 }
 
 void lock_release(lock_t *lock) {
-  lock->pcs[0] = 0;
-  lock->cpu = 0;
   xchg(&lock->locked, 0);
 }
 
 int thread_join(int pid) {
-  if (pid > 0){
-    if (pid == join(pid)){
-      free(start);
-      return pid;
-    }
+  int result = join(pid);
+  if ((pid > 0) && (pid == result)){
+    free(start);
+    return pid;
   }
   else if (pid == -1){
-    return join(pid);
+    //printf(1, "Returning result, which is: %d\n", result);
+    free(start);
+    return result;
   }
+  free(start);
   return -1;
 }
 

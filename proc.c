@@ -335,6 +335,7 @@ join(int pid){
     return -1;
   }
   struct proc *p;
+  int havekids = -1;
   if (pid != -1){ //waiting for one child
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
@@ -354,15 +355,12 @@ join(int pid){
   }
   else{
     acquire(&ptable.lock);
-    int havekids = 0;
     for(;;){
       // Scan through table looking for zombie children.
       for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-        if(p->parent != proc || p->thread == 0)
-          continue;
-        if(p->parent != proc || p->thread == 0){
+        if((p->parent == proc) && ( p->thread == 1) && (p->state == ZOMBIE)){
           // Found one.
-          havekids += 1;
+          havekids = 1;
           pid = p->pid;
           kfree(p->kstack);
           p->kstack = 0;
@@ -373,14 +371,11 @@ join(int pid){
           p->killed = 0;
         }
       }
-      if (havekids > 0){
-        release(&ptable.lock);
-        return havekids;
-      }
-      else if((havekids == 0) || (proc->killed)){
-        release(&ptable.lock);
+      if (proc->killed){
         return -1;
       }
+      release(&ptable.lock);
+      return havekids;
       // Wait for children to exit.  (See wakeup1 call in proc_exit.)
       sleep(proc, &ptable.lock);  //DOC: wait-sleep
     }
