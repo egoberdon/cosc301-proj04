@@ -354,13 +354,15 @@ join(int pid){
   }
   else{
     acquire(&ptable.lock);
+    int havekids = 0;
     for(;;){
       // Scan through table looking for zombie children.
       for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-        if(p->parent != proc)
+        if(p->parent != proc || p->thread == 0)
           continue;
         if(p->parent != proc || p->thread == 0){
           // Found one.
+          havekids += 1;
           pid = p->pid;
           kfree(p->kstack);
           p->kstack = 0;
@@ -371,8 +373,14 @@ join(int pid){
           p->killed = 0;
         }
       }
-      release(&ptable.lock);
-      return -1;
+      if (havekids > 0){
+        release(&ptable.lock);
+        return havekids;
+      }
+      else if((havekids == 0) || (proc->killed)){
+        release(&ptable.lock);
+        return -1;
+      }
       // Wait for children to exit.  (See wakeup1 call in proc_exit.)
       sleep(proc, &ptable.lock);  //DOC: wait-sleep
     }
