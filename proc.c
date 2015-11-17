@@ -183,10 +183,13 @@ clone(void(*fcn)(void*), void *arg, void *stack)
   int i, pid;
   struct proc *newtask;
   // Allocate processes
+  if (((uint)stack % PGSIZE != 0) || ((uint)stack < PGSIZE)){
+    return -1;
+  }
   if((newtask = allocproc()) == 0){
     return -1;
   }
-  newtask->thread = 1;
+  newtask->thread = 1; //is a thread
   newtask->pgdir = proc->pgdir; //share address space with child
   newtask->sz = proc->sz;
   newtask->parent = proc;

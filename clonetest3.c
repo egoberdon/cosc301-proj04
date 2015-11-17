@@ -26,7 +26,6 @@ int main(int argc, char *argv[])
    assert(stack != NULL);
    if((uint)stack % PGSIZE == 0) // make stack unaligned
      stack = (void*)((char*)stack - 100);
-
    assert(clone(worker, 0, stack) == -1);
    assert(clone(0, 0, 0) == -1);
    assert(clone(worker, 0, 0) == -1);
